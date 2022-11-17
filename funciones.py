@@ -68,8 +68,8 @@ def show_image_list(list_images, list_titles=None, list_cmaps=None, grid=False, 
 def cuadrante(imgs0):
     imgs = []
     for img in imgs0:
-        #imgs.append(img[1100:2100,800:2200])
-        imgs.append(img[1300:2300,900:2000])
+        imgs.append(img[400:800,400:900])
+        #imgs.append(img[1300:2300,900:2000])
     return imgs
 
 def filtro_gris(imgs):
@@ -114,7 +114,8 @@ def busqueda(imgs,contours_list):
 
         for cnt in contours_list[i]:
             x, y, w, h = cv2.boundingRect(cnt)
-            if ( ( 70>w > 25) and (70>h>25) and ( not y ==0 ) and (not x == 0)):
+            #if ( ( 70>w > 25) and (70>h>25) and ( not y ==0 ) and (not x == 0)):
+            if ( ( 30>w > 10) and (30>h>10) and ( not y ==0 ) and (not x == 0)):
                 candidatos.append(cnt)
         candidatos_list.append(candidatos)
         cv2.drawContours(canvas_list[i] , candidatos, -1, (0, 255, 0), 2)
@@ -136,7 +137,8 @@ def busqueda2(imgs, candidatos_list):
             for k in range(len(candidatos_list[i])):
                 x2,y2,_,_ = cv2.boundingRect(candidatos_list[i][k])
                 distancia = math.sqrt((y2-y1)**2)
-                if (distancia < 50):
+                #if (distancia < 50):
+                if (distancia < 25):
                     contador += 1
             if contador >= 4:
                 candidatos.append(cnt)
@@ -175,11 +177,11 @@ def cortar(imgs,placa):
     for i in range(len(placa)):
         license = placa[i]
         x, y, w, h = cv2.boundingRect(license)
-        cropped2 = imgs[i][y-75:y+75,x-75:x+400]
+        #cropped2 = imgs[i][y-75:y+75,x-75:x+400]
+        cropped2 = imgs[i][y-15:y+30,x-30:x+120]
         recortes.append(cropped2)
     return recortes
 
 def guardar(recortes, dir_out):
-    path='/home/rodrigo/Workspace/IA_2022/trocr/images/output'
     for i in range(len(recortes)):
         cv2.imwrite(f'{dir_out}/plate{i}.png',recortes[i])

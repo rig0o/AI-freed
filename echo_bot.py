@@ -32,12 +32,14 @@ def detectar(dir_in, dir_out):
     recortes = cortar(img, placas)
     x = guardar(recortes, dir_out)
     return recortes
-def detectar_bytes(img_str):
-    nparr = np.fromstring(img_str, np.uint8)
-    img_np = cv2.imdecode(nparr, cv2.CV_LOAD_IMAGE_COLOR)
-    imgs2 = [img_np]
+
+def detectar_imagen(imagen):
+    dir_out = "/home/rodrigo/Workspace/AI-Fred/aifreed/img/output"
+    imgs = []
+    imgs.append(imagen)
+    print(f' imagen sola -> {imagen.shape}')
     # cargar imagen o imagenes
-    img = cuadrante(imgs2)
+    img = cuadrante(imgs)
     gris = filtro_gris(img)
     ths = filtro_th(gris,umbral=70)
     contorno, _ = contornos(img, ths)
@@ -45,8 +47,13 @@ def detectar_bytes(img_str):
     candidatos, _ = busqueda2(img, candidatos)
     placas, _ = filtro3(img, candidatos)
     recortes = cortar(img, placas)
-    x = guardar(recortes, '/home/rodrigo/Workspace/AI-Fred/aifreed/img/output')
+    guardar(recortes, dir_out)
     return recortes
+
+def bytes_imagen(img_str):
+    nparry = np.asarray(bytearray(img_str), dtype="uint8")
+    cv2image = cv2.imdecode(nparry, cv2.IMREAD_COLOR)
+    return cv2image
 
 
 def img_to_txt(images):
@@ -176,7 +183,7 @@ def imgen_test(message):
     dir_out = "/home/rodrigo/Workspace/AI-Fred/aifreed/img/output"
     patente = detectar(dir_in, dir_out)
     txt = img_to_txt(patente)
-    recibir_patente(txt)
+    #recibir_patente(txt)
     bot.reply_to(message, txt)
 
 
@@ -222,10 +229,17 @@ def send_photo(message):
     fileID = message.photo[-1].file_id
     file_info = bot.get_file(fileID)
     downloaded_file = bot.download_file(file_info.file_path)
-    src = 'img2/' + fileID + '.jpg'
-    
-    with open(src, 'wb') as new_file:
-        new_file.write(downloaded_file)
+    imagen = bytes_imagen(downloaded_file)
+    cv2.imwrite("/home/rodrigo/Workspace/AI-Fred/aifreed/img2/llega.jpg", imagen)
+    patente = detectar_imagen(imagen)
+    txt = img_to_txt(patente)
+    print(txt[0])
+    #recibir_patente(txt)
+    bot.reply_to(message, txt[0])
+
+    #src = 'img2/' + fileID + '.jpg'
+    #with open(src, 'wb') as new_file:
+    #    new_file.write(downloaded_file)
 
 #main
 if __name__ == '__main__':
