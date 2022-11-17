@@ -33,5 +33,3 @@ plates = img_to_txt(images=images)
 
 for plate in plates:
     print(plate)
-
-

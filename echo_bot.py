@@ -2,10 +2,60 @@ import telebot
 import sqlite3
 import os
 from dotenv import load_dotenv
+#from modelo import *
+from funciones import *
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+from PIL import Image
+import io
+#from cv2 import cv
+
+
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
+
+procesador = TrOCRProcessor.from_pretrained('microsoft/trocr-large-printed')
+modelo = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-large-printed')
+
+
+def detectar(dir_in, dir_out):
+    # cargar imagen o imagenes
+    imgs0 = load_images_from_folder(dir_in)
+    img = cuadrante(imgs0)
+    gris = filtro_gris(img)
+    ths = filtro_th(gris,umbral=70)
+    contorno, _ = contornos(img, ths)
+    candidatos, _ = busqueda(img, contorno)
+    candidatos, _ = busqueda2(img, candidatos)
+    placas, _ = filtro3(img, candidatos)
+    recortes = cortar(img, placas)
+    x = guardar(recortes, dir_out)
+    return recortes
+def detectar_bytes(img_str):
+    nparr = np.fromstring(img_str, np.uint8)
+    img_np = cv2.imdecode(nparr, cv2.CV_LOAD_IMAGE_COLOR)
+    imgs2 = [img_np]
+    # cargar imagen o imagenes
+    img = cuadrante(imgs2)
+    gris = filtro_gris(img)
+    ths = filtro_th(gris,umbral=70)
+    contorno, _ = contornos(img, ths)
+    candidatos, _ = busqueda(img, contorno)
+    candidatos, _ = busqueda2(img, candidatos)
+    placas, _ = filtro3(img, candidatos)
+    recortes = cortar(img, placas)
+    x = guardar(recortes, '/home/rodrigo/Workspace/AI-Fred/aifreed/img/output')
+    return recortes
+
+
+def img_to_txt(images):
+    txt = []
+    for img in images:
+        tensor_pixel = procesador(images=img, return_tensors="pt").pixel_values
+        generated_ids = modelo.generate(tensor_pixel)
+        txt.append(procesador.batch_decode(generated_ids, skip_special_tokens=True)[0])
+    return txt
 
 def consultarUsuario(chat_id):
     conexion = sqlite3.connect("db/aifred.sqlite3")
@@ -120,6 +170,16 @@ def usuarios_pendientes(message):
             bot.reply_to(message, "Esta funcion es solo para el admin")
 
 
+@bot.message_handler(commands=['test'])
+def imgen_test(message):
+    dir_in = "/home/rodrigo/Workspace/AI-Fred/aifreed/img/input"
+    dir_out = "/home/rodrigo/Workspace/AI-Fred/aifreed/img/output"
+    patente = detectar(dir_in, dir_out)
+    txt = img_to_txt(patente)
+    recibir_patente(txt)
+    bot.reply_to(message, txt)
+
+
 def recibir_patente(patente):
     patente = patente.replace(" ", "")
     patente = patente.replace("-", "")
@@ -156,8 +216,21 @@ def send_text(message):
     else:
         bot.send_message(message.chat.id, "No estoy hecho para responder, solo para recibir comandos 🤖")
 
+@bot.message_handler(content_types=['photo'])
+def send_photo(message):
+    #save photo
+    fileID = message.photo[-1].file_id
+    file_info = bot.get_file(fileID)
+    downloaded_file = bot.download_file(file_info.file_path)
+    src = 'img2/' + fileID + '.jpg'
+    
+    with open(src, 'wb') as new_file:
+        new_file.write(downloaded_file)
+
 #main
 if __name__ == '__main__':
+
+
     lista = [telebot.types.BotCommand(command="/inicio", description="Iniciar el bot"),
                 telebot.types.BotCommand(command="/consultar", description="Consulta los vehiculos que tienes registrados"),
                 telebot.types.BotCommand(command="/abrir", description="Abre el porton si es que existe un auto"),]
