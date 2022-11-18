@@ -107,6 +107,7 @@ def registrarVehiculo(chat_id, patente):
     conexion = sqlite3.connect("db/aifred.sqlite3")
     cursor = conexion.cursor()
     cursor.execute("INSERT INTO vehiculos_permitidos (id_usuario, patente) VALUES ((SELECT id FROM usuarios WHERE chat_id = ?), ?)", (chat_id, patente))
+    #cursor.execute("INSERT INTO vehiculos_permitidos (id_usuario, patente) VALUES (?, ?)", (chat_id, patente))
     conexion.commit()
     conexion.close()
 
@@ -117,10 +118,10 @@ def eliminarVehiculo(chat_id, patente):
     conexion.commit()
     conexion.close()
 
-def agregarUsuarioBD(chat_id,nombre):
+def agregarUsuarioBD(chat_id,nombre, apellido):
     conexion = sqlite3.connect("db/aifred.sqlite3")
     cursor = conexion.cursor()
-    cursor.execute("INSERT INTO usuario_pendiente (chat_id, nombre) VALUES (?, ?)", (chat_id, nombre))
+    cursor.execute("INSERT INTO usuarios (nombre, apellido, chat_id) VALUES (?, ?,?)", (nombre,apellido,chat_id))
     conexion.commit()
     conexion.close()
 
@@ -138,8 +139,11 @@ def send_welcome(message):
     if consultarUsuario(message.chat.id) == None:
         bot.reply_to(message, "Para poder usar AIFred, debes registrarte")
         bot.reply_to(message, "Ponte en contacto con el administrador de la parcela")
-        if consultarUsuario(message.chat.id) == None and consultarUsuario_pendiente(message.chat.id) == None:
-            agregarUsuarioBD(message.chat.id, message.chat.first_name)
+        if consultarUsuario(message.chat.id) == None:
+            if not message.chat.last_name == None: 
+                agregarUsuarioBD(message.chat.id, message.chat.first_name, message.chat.last_name)
+            else:
+                agregarUsuarioBD(message.chat.id, message.chat.first_name, 'perez')
     else:
         bot.reply_to(message, "Bienvenido de nuevo, " + consultarUsuario(message.chat.id)[1])
 
@@ -197,10 +201,15 @@ def recibir_patente(patente):
     cursor.execute("SELECT chat_id FROM usuarios")
     for usuario in cursor.fetchall():
         usuarios.append(usuario[0])
+    #conexion.close()
+    cursor = conexion.cursor()
+    #insertar patente en la tabla de patentes pendientes
+    cursor.execute("INSERT INTO patente_pendiente (patente) VALUES (?)", (patente,))
+    conexion.commit()
     conexion.close()
+    #enviar mensaje a todos los usuarios
     for usuario in usuarios:
         bot.send_message(usuario, f"Se ha detectado un vehiculo con la patente : {patente} en el porton. Desea abrir el porton?")
-
 
 @bot.message_handler(commands=['abrir'])
 def abrir_porton(message):
@@ -212,7 +221,7 @@ def abrir_porton(message):
             bot.reply_to(message, "No hay vehiculos en el porton")
         else:
             patente = consultarPatentePendiente()[0]
-            registrar_vehiculo(message.chat.id, patente)
+            registrarVehiculo(message.chat.id, patente)
             eliminarPatentePendiente()
             bot.reply_to(message, "Abriendo porton")
 
@@ -221,7 +230,8 @@ def send_text(message):
     if message.text.startswith("/"):
         bot.reply_to(message, "No entiendo el comando")
     else:
-        bot.send_message(message.chat.id, "No estoy hecho para responder, solo para recibir comandos 🤖")
+        #bot.send_message(message.chat.id, "No estoy hecho para responder, solo para recibir comandos 🤖")
+        recibir_patente(message.text)
 
 @bot.message_handler(content_types=['photo'])
 def send_photo(message):
@@ -232,15 +242,22 @@ def send_photo(message):
     imagen = bytes_imagen(downloaded_file)
     cv2.imwrite("/home/rodrigo/Workspace/AI-Fred/aifreed/img2/llega.jpg", imagen)
     patente = detectar_imagen(imagen)
-    txt = img_to_txt(patente)
-    print(txt[0])
-    #recibir_patente(txt)
-    bot.reply_to(message, txt[0])
+    texto = img_to_txt(patente)
+    txt = texto[0]
+    txt = txt.replace(" ", "")
+    txt = txt.replace("-", "")
+    txt = txt.upper()
+    registrarVehiculo(message.chat.id,txt)
+    bot.reply_to(message, f'patente registrada {txt}')
+
+def simular():
+    print(f'ingrese patente')
+    # input
+    input1 = input()
+    recibir_patente(input1)
 
 #main
 if __name__ == '__main__':
-
-
     lista = [telebot.types.BotCommand(command="/inicio", description="Iniciar el bot"),
                 telebot.types.BotCommand(command="/consultar", description="Consulta los vehiculos que tienes registrados"),
                 telebot.types.BotCommand(command="/abrir", description="Abre el porton si es que existe un auto"),]
