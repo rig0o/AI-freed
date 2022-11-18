@@ -237,10 +237,6 @@ def send_photo(message):
     #recibir_patente(txt)
     bot.reply_to(message, txt[0])
 
-    #src = 'img2/' + fileID + '.jpg'
-    #with open(src, 'wb') as new_file:
-    #    new_file.write(downloaded_file)
-
 #main
 if __name__ == '__main__':
 
