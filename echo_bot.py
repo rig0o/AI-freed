@@ -246,6 +246,8 @@ def send_photo(message):
     txt = texto[0]
     txt = txt.replace(" ", "")
     txt = txt.replace("-", "")
+    txt = txt.replace(".", "")
+    txt = txt.replace(":", "")
     txt = txt.upper()
     registrarVehiculo(message.chat.id,txt)
     bot.reply_to(message, f'patente registrada {txt}')
