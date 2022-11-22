@@ -2,7 +2,8 @@ import telebot
 import sqlite3
 import os
 from dotenv import load_dotenv
-#from modelo import *
+from telebot.types import InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup
 from funciones import *
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 from PIL import Image
@@ -15,8 +16,8 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 
-procesador = TrOCRProcessor.from_pretrained('microsoft/trocr-large-printed')
-modelo = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-large-printed')
+#procesador = TrOCRProcessor.from_pretrained('microsoft/trocr-large-printed')
+#modelo = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-large-printed')
 
 
 def detectar(dir_in, dir_out):
@@ -104,6 +105,7 @@ def eliminarPatentePendiente():
     conexion.close()
 
 def registrarVehiculo(chat_id, patente):
+    patente = patente.upper()
     conexion = sqlite3.connect("db/aifred.sqlite3")
     cursor = conexion.cursor()
     cursor.execute("INSERT INTO vehiculos_permitidos (id_usuario, patente) VALUES ((SELECT id FROM usuarios WHERE chat_id = ?), ?)", (chat_id, patente))
@@ -112,6 +114,7 @@ def registrarVehiculo(chat_id, patente):
     conexion.close()
 
 def eliminarVehiculo(chat_id, patente):
+    patente = patente.upper()
     conexion = sqlite3.connect("db/aifred.sqlite3")
     cursor = conexion.cursor()
     cursor.execute("DELETE FROM vehiculos_permitidos WHERE id_usuario = (SELECT id FROM usuarios WHERE chat_id = ?) AND patente = ?", (chat_id, patente))
@@ -151,20 +154,41 @@ def send_welcome(message):
 def consultar_vehiculos(message):
     if consultarUsuario(message.chat.id) == None:
         bot.reply_to(message, "Para poder usar AIFred, debes registrarte")
-        bot.reply_to(message, "Ponte en contacto con el administrador de la parcela")
+        #bot.reply_to(message, "Ponte en contacto con el administrador de la parcela")
     else:
-        bot.reply_to(message, "Estos son los vehiculos que tienes registrados:")
+        #bot.reply_to(message, "Estos son los vehiculos que tienes registrados:")
+        patentes = "Estos son los vehiculos que tienes registrados: \n"
         for vehiculo in consultarVehiculosUsuario(message.chat.id):
-            bot.reply_to(message, vehiculo[2])
+            patentes = '{}{}\n'.format(patentes, vehiculo[2])
+        bot.reply_to(message, patentes)
 
 @bot.message_handler(commands=['registrar'])
 def registrar_vehiculo(message):
-    texto_registrar = " ".join(message.text.split()[1:])
+    print('registrar por comando')
+    texto_registrar = message.text.split()[1:]
     if not texto_registrar:
-        bot.reply_to(message, "Debes ingresar la patente del vehiculo")
-        return 1
+        texto = 'Debes ingresar una patente \n'
+        texto += 'Ejemplo:\n'
+        texto += f'<code>{message.text} AABB01 </code>'
+        bot.send_message(message.chat.id, texto,parse_mode="html")
+        #bot.reply_to(message,texto,parse_mode="html")
+
     else:
-        return 0
+        for patente in texto_registrar:
+            registrarVehiculo(message.chat.id,patente= patente)
+        bot.send_message(message.chat.id, f'Patentes registradas:{texto_registrar}')
+        #bot.reply_to(message, f'Patentes registradas:{texto_registrar}')
+
+
+@bot.message_handler(commands=['borrar'])
+def borrar_vehiculo(message):
+    texto_registrar = message.text.split()[1:]
+    if not texto_registrar:
+        bot.reply_to(message, "Debes ingresar la patente del vehiculo /borrar AABB00")
+    else:
+        for patente in texto_registrar:
+            eliminarVehiculo(message.chat.id,patente= patente)
+        bot.reply_to(message, f'Patentes borrados:{texto_registrar}')
 
 @bot.message_handler(commands=['pendientes'])
 def usuarios_pendientes(message):
@@ -181,7 +205,7 @@ def usuarios_pendientes(message):
             bot.reply_to(message, "Esta funcion es solo para el admin")
 
 
-@bot.message_handler(commands=['test'])
+@bot.message_handler(commands=['demo'])
 def imgen_test(message):
     dir_in = "/home/rodrigo/Workspace/AI-Fred/aifreed/img/input"
     dir_out = "/home/rodrigo/Workspace/AI-Fred/aifreed/img/output"
@@ -208,9 +232,30 @@ def recibir_patente(patente):
     conexion.commit()
     conexion.close()
     #enviar mensaje a todos los usuarios
+    markup = InlineKeyboardMarkup(row_width=1)
+    b1 = InlineKeyboardButton("si",callback_data="si")
+    b2 = InlineKeyboardButton("no",callback_data="no")
+    markup.add(b1,b2)
     for usuario in usuarios:
-        bot.send_message(usuario, f"Se ha detectado un vehiculo con la patente : {patente} en el porton. Desea abrir el porton?")
+        bot.send_message(usuario, f"Se ha detectado un vehiculo con la patente : {patente} en el porton. Desea abrir el porton?",reply_markup=markup)
 
+
+@bot.callback_query_handler(func=lambda x: True)
+def boton_abrir(call):
+    cid = call.from_user.id
+    mid = call.message.id
+    if call.data == "si":
+        if consultarPatentePendiente() == None:
+            bot.send_message(cid, "No hay vehiculos en el porton")
+        else:
+            patente = consultarPatentePendiente()[0]
+            registrarVehiculo(cid, patente)
+            eliminarPatentePendiente()
+            bot.send_message(cid, f'Abriendo porton')
+        bot.delete_message(cid,mid)
+    elif(call.data == "no"):
+        bot.delete_message(cid,mid)
+        
 @bot.message_handler(commands=['abrir'])
 def abrir_porton(message):
     if consultarUsuario(message.chat.id) == None:
@@ -235,12 +280,16 @@ def send_text(message):
 
 @bot.message_handler(content_types=['photo'])
 def send_photo(message):
-    #save photo
+    print('registrar por foto')
+    msg = "{} - {}".format(" ",message.text) 
     fileID = message.photo[-1].file_id
     file_info = bot.get_file(fileID)
     downloaded_file = bot.download_file(file_info.file_path)
     imagen = bytes_imagen(downloaded_file)
     cv2.imwrite("/home/rodrigo/Workspace/AI-Fred/aifreed/img2/llega.jpg", imagen)
+    print(msg)
+    
+    '''
     patente = detectar_imagen(imagen)
     texto = img_to_txt(patente)
     txt = texto[0]
@@ -251,6 +300,7 @@ def send_photo(message):
     txt = txt.upper()
     registrarVehiculo(message.chat.id,txt)
     bot.reply_to(message, f'patente registrada {txt}')
+    '''
 
 def simular():
     print(f'ingrese patente')
@@ -260,9 +310,12 @@ def simular():
 
 #main
 if __name__ == '__main__':
-    lista = [telebot.types.BotCommand(command="/inicio", description="Iniciar el bot"),
-                telebot.types.BotCommand(command="/consultar", description="Consulta los vehiculos que tienes registrados"),
-                telebot.types.BotCommand(command="/abrir", description="Abre el porton si es que existe un auto"),]
+    lista = [
+            telebot.types.BotCommand(command="/abrir", description="Abre el porton si es que existe un auto"),
+            telebot.types.BotCommand(command="/registrar", description="Registrar una patente nueva"),
+            telebot.types.BotCommand(command="/consultar", description="Consulta los vehiculos que tienes registrados"),
+            telebot.types.BotCommand(command="/inicio", description="Iniciar el bot"),
+            ]
     bot.set_my_commands(lista)
     print("Bot iniciado")
     bot.polling(none_stop=True)
