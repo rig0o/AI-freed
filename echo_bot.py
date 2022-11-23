@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from telebot.types import InlineKeyboardButton
 from telebot.types import InlineKeyboardMarkup
 from funciones import *
+from is_car import *
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 from PIL import Image
 import io
@@ -16,8 +17,8 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 
-#procesador = TrOCRProcessor.from_pretrained('microsoft/trocr-large-printed')
-#modelo = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-large-printed')
+procesador = TrOCRProcessor.from_pretrained('microsoft/trocr-large-printed')
+modelo = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-large-printed')
 
 
 def detectar(dir_in, dir_out):
@@ -206,13 +207,18 @@ def usuarios_pendientes(message):
 
 
 @bot.message_handler(commands=['demo'])
-def imgen_test(message):
-    dir_in = "/home/rodrigo/Workspace/AI-Fred/aifreed/img/input"
-    dir_out = "/home/rodrigo/Workspace/AI-Fred/aifreed/img/output"
+def video_test(message):
+    dir_in = "/home/rodrigo/Workspace/AI-freed/img/input"
+    dir_out = "/home/rodrigo/Workspace/AI-freed/img/output"
     patente = detectar(dir_in, dir_out)
     txt = img_to_txt(patente)
-    #recibir_patente(txt)
+    print(txt)
+    txt = limpiar(txt)
     bot.reply_to(message, txt)
+
+@bot.message_handler(commands=['demo2'])
+def video_test(message):
+    camara()
 
 
 def recibir_patente(patente):
@@ -302,11 +308,6 @@ def send_photo(message):
     bot.reply_to(message, f'patente registrada {txt}')
     '''
 
-def simular():
-    print(f'ingrese patente')
-    # input
-    input1 = input()
-    recibir_patente(input1)
 
 #main
 if __name__ == '__main__':

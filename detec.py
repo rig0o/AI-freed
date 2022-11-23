@@ -2,8 +2,8 @@ from funciones import *
 
 
 
-dir_in = "/home/rodrigo/Workspace/AI-Fred/aifreed/img/input"
-dir_out = "/home/rodrigo/Workspace/AI-Fred/aifreed/img/output"
+dir_in = "/home/rodrigo/Workspace/AI-freed/img/input"
+dir_out = "/home/rodrigo/Workspace/AI-Fred/img/output_video"
 
 
 # cargar imagen o imagenes
@@ -25,4 +25,4 @@ placas, _ = filtro3(img, candidatos)
 
 recortes = cortar(img, placas)
 
-x = guardar(recortes, dir_out)
+x = guardar(recortes, "/home/rodrigo/Workspace/AI-freed/img/output")

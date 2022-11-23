@@ -9,6 +9,10 @@ def load_images_from_folder(folder):
     images = []
     for filename in os.listdir(folder):
         img = cv2.imread(os.path.join(folder,filename))
+        # resize
+        print(img.shape)
+        img = cv2.resize(img, (1280, 960), interpolation = cv2.INTER_LINEAR)
+        print(img.shape)
         if img is not None:
             images.append(img)
     return images
@@ -68,7 +72,11 @@ def show_image_list(list_images, list_titles=None, list_cmaps=None, grid=False, 
 def cuadrante(imgs0):
     imgs = []
     for img in imgs0:
-        imgs.append(img[400:800,400:900])
+        # Imagen grande desde video 
+        imgs.append(img[560:960,600:11000])
+        # Imagen grande pasada por telegram
+        #imgs.append(img[400:800,400:900])
+        # Imagen grande jupyter
         #imgs.append(img[1300:2300,900:2000])
     return imgs
 
@@ -114,8 +122,12 @@ def busqueda(imgs,contours_list):
 
         for cnt in contours_list[i]:
             x, y, w, h = cv2.boundingRect(cnt)
+            # Imagen grande desde iphone
             #if ( ( 70>w > 25) and (70>h>25) and ( not y ==0 ) and (not x == 0)):
-            if ( ( 30>w > 10) and (30>h>10) and ( not y ==0 ) and (not x == 0)):
+            # Imagen grande pasado por telegram
+            #if ( ( 30>w > 10) and (30>h>10) and ( not y ==0 ) and (not x == 0)):
+            # Imagen grande desde Video
+            if ( ( 30>w > 10) and (35>h>25) and ( not y ==0 ) and (not x == 0)):
                 candidatos.append(cnt)
         candidatos_list.append(candidatos)
         cv2.drawContours(canvas_list[i] , candidatos, -1, (0, 255, 0), 2)
@@ -177,11 +189,26 @@ def cortar(imgs,placa):
     for i in range(len(placa)):
         license = placa[i]
         x, y, w, h = cv2.boundingRect(license)
+        # Imagen grande desde iphon
         #cropped2 = imgs[i][y-75:y+75,x-75:x+400]
-        cropped2 = imgs[i][y-15:y+30,x-30:x+120]
+        # Imgaegn grande desde Telegram
+        #cropped2 = imgs[i][y-15:y+30,x-30:x+120]
+        # Imagen grande desde Video
+        cropped2 = imgs[i][y-15:y+40,x-30:x+150]
         recortes.append(cropped2)
     return recortes
 
-def guardar(recortes, dir_out):
+def guardar(recortes, dir_out, name = "plate"):
     for i in range(len(recortes)):
-        cv2.imwrite(f'{dir_out}/plate{i}.png',recortes[i])
+        cv2.imwrite(f'{dir_out}/{name}.png',recortes[i])
+
+def limpiar(texto):
+    list_txt = []
+    for txt in texto:
+        txt = txt.replace(" ", "")
+        txt = txt.replace("-", "")
+        txt = txt.replace(".", "")
+        txt = txt.replace(":", "")
+        txt = txt.replace(";", "")
+        list_txt.append(txt)
+    return list_txt
