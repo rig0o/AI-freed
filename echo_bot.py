@@ -35,12 +35,14 @@ def detectar(dir_in, dir_out):
     x = guardar(recortes, dir_out)
     return recortes
 
-def detectar_imagen(imagen):
-    dir_out = "/home/rodrigo/Workspace/AI-Fred/aifreed/img/output"
+def detectar_imagen(imagen, dir_out):
+
     imgs = []
-    imgs.append(imagen)
-    print(f' imagen sola -> {imagen.shape}')
-    # cargar imagen o imagenes
+    for img in imagen:
+        img = cv2.resize(img, (1280, 960), interpolation = cv2.INTER_LINEAR)
+        imgs.append(img)
+    #print(f'Tamaño de la foto:{img.shape}')
+
     img = cuadrante(imgs)
     gris = filtro_gris(img)
     ths = filtro_th(gris,umbral=70)
@@ -50,7 +52,11 @@ def detectar_imagen(imagen):
     placas, _ = filtro3(img, candidatos)
     recortes = cortar(img, placas)
     guardar(recortes, dir_out)
-    return recortes
+
+    lst_patente = []
+    for im in recortes:
+        lst_patente.append(Image.fromarray(im))
+    return lst_patente
 
 def bytes_imagen(img_str):
     nparry = np.asarray(bytearray(img_str), dtype="uint8")
@@ -59,12 +65,13 @@ def bytes_imagen(img_str):
 
 
 def img_to_txt(images):
-    txt = []
+    texto = []
     for img in images:
         tensor_pixel = procesador(images=img, return_tensors="pt").pixel_values
         generated_ids = modelo.generate(tensor_pixel)
-        txt.append(procesador.batch_decode(generated_ids, skip_special_tokens=True)[0])
-    return txt
+        texto.append(procesador.batch_decode(generated_ids, skip_special_tokens=True)[0])
+    texto = limpiar(texto)
+    return texto
 
 def consultarUsuario(chat_id):
     conexion = sqlite3.connect("db/aifred.sqlite3")
@@ -212,13 +219,19 @@ def video_test(message):
     dir_out = "/home/rodrigo/Workspace/AI-freed/img/output"
     patente = detectar(dir_in, dir_out)
     txt = img_to_txt(patente)
-    print(txt)
     txt = limpiar(txt)
+    print(f'Comando demo >{txt}')
     bot.reply_to(message, txt)
 
 @bot.message_handler(commands=['demo2'])
 def video_test(message):
-    camara()
+    path_out = "/home/rodrigo/Workspace/AI-freed/img/output_video"
+    frames = camara()
+    lst_patente = detectar_imagen(frames,path_out)
+    print(type(lst_patente))
+    print(type(lst_patente[0]))
+    lst_txt = img_to_txt(lst_patente)
+    print(f'llego la patente : {lst_txt}')
 
 
 def recibir_patente(patente):
@@ -292,7 +305,7 @@ def send_photo(message):
     file_info = bot.get_file(fileID)
     downloaded_file = bot.download_file(file_info.file_path)
     imagen = bytes_imagen(downloaded_file)
-    cv2.imwrite("/home/rodrigo/Workspace/AI-Fred/aifreed/img2/llega.jpg", imagen)
+    cv2.imwrite("/home/rodrigo/Workspace/AI-freed/img/llega/input01.jpg", imagen)
     print(msg)
     
     '''

@@ -14,6 +14,7 @@ def camara():
     i = 0
     cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
     cv2.resizeWindow('frame', 1000, 500)
+    lst_frames = []
     while True:
         time_elapsed = time.time() - prev
         ret, frame = cap.read()
@@ -47,6 +48,10 @@ def camara():
                     i = i+1
                     print(f'{i}--{cv2.contourArea(cnt)}')
                     cv2.imwrite(f'{path}/frame{datetime.now()}.png',frame)
+                    lst_frames.append(frame)
+                    cap.release()
+                    cv2.destroyAllWindows()
+                    return lst_frames
 
             cv2.imshow('frame',frame)
             prev = time.time()
@@ -55,3 +60,4 @@ def camara():
             break
     cap.release()
     cv2.destroyAllWindows()
+    return lst_frames

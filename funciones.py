@@ -10,9 +10,7 @@ def load_images_from_folder(folder):
     for filename in os.listdir(folder):
         img = cv2.imread(os.path.join(folder,filename))
         # resize
-        print(img.shape)
         img = cv2.resize(img, (1280, 960), interpolation = cv2.INTER_LINEAR)
-        print(img.shape)
         if img is not None:
             images.append(img)
     return images
