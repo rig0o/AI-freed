@@ -9,7 +9,6 @@ from is_car import *
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 from PIL import Image
 import io
-#from cv2 import cv
 
 
 load_dotenv()
@@ -143,18 +142,23 @@ def agregarUsuarioParcela(chat_id, nombre):
     conexion.commit()
     conexion.close()
 
+def consultarVehiculoUsuario(patente):
+    conexion = sqlite3.connect("db/aifred.sqlite3")
+    cursor = conexion.cursor()
+    cursor.execute("SELECT id_usuario FROM vehiculos_permitidos WHERE patente = ?", (patente,))
+    usuario = cursor.fetchone()
+    conexion.close()
+    return usuario
 
 @bot.message_handler(commands=['inicio'])
 def send_welcome(message):
     bot.reply_to(message, "AIFred, tu porton inteligente")
     if consultarUsuario(message.chat.id) == None:
-        bot.reply_to(message, "Para poder usar AIFred, debes registrarte")
-        bot.reply_to(message, "Ponte en contacto con el administrador de la parcela")
-        if consultarUsuario(message.chat.id) == None:
-            if not message.chat.last_name == None: 
-                agregarUsuarioBD(message.chat.id, message.chat.first_name, message.chat.last_name)
-            else:
-                agregarUsuarioBD(message.chat.id, message.chat.first_name, 'perez')
+        if not message.chat.last_name == None: 
+            agregarUsuarioBD(message.chat.id, message.chat.first_name, message.chat.last_name)
+        else:
+            agregarUsuarioBD(message.chat.id, message.chat.first_name, 'perez')
+        bot.reply_to(message, "Bienvenido a AIFred, tu porton inteligente")
     else:
         bot.reply_to(message, "Bienvenido de nuevo, " + consultarUsuario(message.chat.id)[1])
 
@@ -162,9 +166,7 @@ def send_welcome(message):
 def consultar_vehiculos(message):
     if consultarUsuario(message.chat.id) == None:
         bot.reply_to(message, "Para poder usar AIFred, debes registrarte")
-        #bot.reply_to(message, "Ponte en contacto con el administrador de la parcela")
     else:
-        #bot.reply_to(message, "Estos son los vehiculos que tienes registrados:")
         patentes = "Estos son los vehiculos que tienes registrados: \n"
         for vehiculo in consultarVehiculosUsuario(message.chat.id):
             patentes = '{}{}\n'.format(patentes, vehiculo[2])
@@ -195,6 +197,9 @@ def borrar_vehiculo(message):
         bot.reply_to(message, "Debes ingresar la patente del vehiculo /borrar AABB00")
     else:
         for patente in texto_registrar:
+            if(consultarVehiculoUsuario(patente) == None):
+                bot.reply_to(message, f'No se encuentra registrado el vehiculo {patente}')
+                continue
             eliminarVehiculo(message.chat.id,patente= patente)
         bot.reply_to(message, f'Patentes borrados:{texto_registrar}')
 
@@ -215,23 +220,26 @@ def usuarios_pendientes(message):
 
 @bot.message_handler(commands=['demo'])
 def video_test(message):
-    dir_in = "/home/rodrigo/Workspace/AI-freed/img/input"
-    dir_out = "/home/rodrigo/Workspace/AI-freed/img/output"
-    patente = detectar(dir_in, dir_out)
-    txt = img_to_txt(patente)
-    txt = limpiar(txt)
-    print(f'Comando demo >{txt}')
-    bot.reply_to(message, txt)
+    txt = 'AAAA00'
+    usuario_propietario = consultarVehiculoUsuario(txt)
+    if(usuario_propietario == None):
+        recibir_patente(txt)
+    else:
+        bot.send_message(message.chat.id,'Open porton')
 
 @bot.message_handler(commands=['demo2'])
 def video_test(message):
     path_out = "/home/rodrigo/Workspace/AI-freed/img/output_video"
     frames = camara()
     lst_patente = detectar_imagen(frames,path_out)
-    print(type(lst_patente))
-    print(type(lst_patente[0]))
     lst_txt = img_to_txt(lst_patente)
-    print(f'llego la patente : {lst_txt}')
+    txt = lst_txt[0]
+    usuario_propietario = consultarVehiculoUsuario(txt)
+    if(usuario_propietario == None):
+        recibir_patente(txt)
+    else:
+        bot.send_message(message.chat.id,'Open porton')
+    
 
 
 def recibir_patente(patente):
@@ -268,7 +276,7 @@ def boton_abrir(call):
             bot.send_message(cid, "No hay vehiculos en el porton")
         else:
             patente = consultarPatentePendiente()[0]
-            registrarVehiculo(cid, patente)
+            #registrarVehiculo(cid, patente)
             eliminarPatentePendiente()
             bot.send_message(cid, f'Abriendo porton')
         bot.delete_message(cid,mid)
@@ -285,7 +293,7 @@ def abrir_porton(message):
             bot.reply_to(message, "No hay vehiculos en el porton")
         else:
             patente = consultarPatentePendiente()[0]
-            registrarVehiculo(message.chat.id, patente)
+            #registrarVehiculo(message.chat.id, patente)
             eliminarPatentePendiente()
             bot.reply_to(message, "Abriendo porton")
 
@@ -294,8 +302,7 @@ def send_text(message):
     if message.text.startswith("/"):
         bot.reply_to(message, "No entiendo el comando")
     else:
-        #bot.send_message(message.chat.id, "No estoy hecho para responder, solo para recibir comandos 🤖")
-        recibir_patente(message.text)
+        bot.send_message(message.chat.id, "No estoy hecho para responder, solo para recibir comandos 🤖")
 
 @bot.message_handler(content_types=['photo'])
 def send_photo(message):
@@ -327,7 +334,7 @@ if __name__ == '__main__':
     lista = [
             telebot.types.BotCommand(command="/abrir", description="Abre el porton si es que existe un auto"),
             telebot.types.BotCommand(command="/registrar", description="Registrar una patente nueva"),
-            telebot.types.BotCommand(command="/consultar", description="Consulta los vehiculos que tienes registrados"),
+            telebot.types.BotCommand(command="/consultar", description="Consulta las patentes que tienes registrados"),
             telebot.types.BotCommand(command="/inicio", description="Iniciar el bot"),
             ]
     bot.set_my_commands(lista)
